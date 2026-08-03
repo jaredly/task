@@ -9,7 +9,6 @@ Each task lives in the nearest `.tasks` directory and receives a compact, sortab
 - Node.js 24.12 or newer
 - pnpm 11.1.3 for installation and development
 - A Unix-like environment (macOS and Linux are the supported targets)
-- A repository or parent directory containing a `.tasks` directory
 
 ## Installation
 
@@ -28,13 +27,13 @@ Alternatively, symlink the executable into a directory already on your `PATH` af
 ln -s /path/to/task/task.ts ~/.local/bin/task
 ```
 
-Create a `.tasks` directory in each repository where tasks should be managed:
+Initialize each repository where tasks should be managed:
 
 ```sh
-mkdir .tasks
+task init
 ```
 
-The CLI can be run from any descendant directory. It walks up the directory tree to find the nearest `.tasks` directory.
+The command looks for `.tasks` in the current directory and its ancestors. If none exists, it asks for default-no `(y/N)` confirmation before creating `.tasks` in the current directory. Once initialized, the CLI can be run from any descendant directory and uses the nearest `.tasks` directory.
 
 Install the five bundled skills for all repositories with:
 
@@ -75,6 +74,7 @@ Usage:
   task <name...>          Create a standard task
   task simple <name...>   Create a simple task
   task bug <name...>      Create a bug task
+  task init               Initialize .tasks in the current directory
   task -p [--no-skill] [target]
                          Print a task prompt, selecting a task if omitted
   task skills <action>    Install, inspect, or uninstall personal skills
@@ -115,7 +115,7 @@ task bug login redirect
 
 Bug tasks create `bug.md` and invoke `$task-bugfix`. The skill requires a failing reproduction before the fix, verification, an implementation log, and a scoped commit.
 
-`simple` and `bug` are reserved when used as the first argument. The rest of the name is joined with dashes. Characters outside ASCII letters, numbers, `_`, and `-` are converted to dashes; consecutive dashes are collapsed.
+`init`, `simple`, and `bug` are reserved when used as the first argument. The rest of the name is joined with dashes. Characters outside ASCII letters, numbers, `_`, and `-` are converted to dashes; consecutive dashes are collapsed.
 
 When a task is created from a subdirectory, its path relative to the repository root is inserted into the new brief as context.
 

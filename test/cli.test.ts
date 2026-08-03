@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   renameSync,
   statSync,
@@ -90,6 +91,70 @@ test("findTasksBase ignores a regular file named .tasks", () => {
   assert.equal(findTasksBase(root), undefined);
 });
 
+test("init creates .tasks in the current directory after confirmation", async () => {
+  const root = mkdtempSync(join(tmpdir(), "tasks-init-"));
+  let prompt = "";
+  const current = harness(root, {
+    confirm: async (message) => {
+      prompt = message;
+      return true;
+    },
+  });
+
+  assert.equal(await runCli(["init"], current.services), 0);
+  assert.equal(prompt, `Create .tasks directory in ${root}?`);
+  assert.equal(statSync(join(root, ".tasks")).isDirectory(), true);
+  assert.deepEqual(current.output, [
+    `Created .tasks directory: ${join(root, ".tasks")}`,
+  ]);
+});
+
+test("init cancellation leaves the current directory unchanged", async () => {
+  const root = mkdtempSync(join(tmpdir(), "tasks-init-cancel-"));
+  const current = harness(root);
+
+  assert.equal(await runCli(["init"], current.services), 0);
+  assert.equal(existsSync(join(root, ".tasks")), false);
+  assert.deepEqual(current.output, ["Cancelled."]);
+});
+
+test("init is idempotent below an existing .tasks directory", async () => {
+  const root = fixture();
+  const nested = join(root, "src", "feature");
+  mkdirSync(nested, { recursive: true });
+  let confirmCalls = 0;
+  const current = harness(nested, {
+    confirm: async () => {
+      confirmCalls += 1;
+      return true;
+    },
+  });
+
+  assert.equal(await runCli(["init"], current.services), 0);
+  assert.equal(confirmCalls, 0);
+  assert.equal(existsSync(join(nested, ".tasks")), false);
+  assert.deepEqual(readdirSync(join(root, ".tasks")), []);
+  assert.deepEqual(current.output, [
+    `Found existing .tasks directory: ${join(root, ".tasks")}`,
+  ]);
+});
+
+test("init rejects extra arguments without prompting or creating tasks", async () => {
+  const root = mkdtempSync(join(tmpdir(), "tasks-init-usage-"));
+  let confirmCalls = 0;
+  const current = harness(root, {
+    confirm: async () => {
+      confirmCalls += 1;
+      return true;
+    },
+  });
+
+  assert.equal(await runCli(["init", "extra"], current.services), 2);
+  assert.equal(confirmCalls, 0);
+  assert.equal(existsSync(join(root, ".tasks")), false);
+  assert.deepEqual(current.errors, ["Usage: task init"]);
+});
+
 test("normalizeTaskName replaces unsafe characters", () => {
   assert.equal(normalizeTaskName(["hello", "world"]), "hello-world");
   assert.equal(normalizeTaskName(["hello / shell;$world"]), "hello-shell-world");
@@ -106,6 +171,7 @@ test("help and invalid input do not create tasks", async () => {
 
   const help = harness(root);
   assert.equal(await runCli(["-h"], help.services), 0);
+  assert.match(help.output[0], /task init/);
   assert.match(help.output[0], /task -a/);
 
   const unknown = harness(root);

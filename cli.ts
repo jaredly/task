@@ -60,6 +60,7 @@ const help = `Usage:
   task <name...>          Create a standard task
   task simple <name...>   Create a simple task
   task bug <name...>      Create a bug task
+  task init               Initialize .tasks in the current directory
   task -p [--no-skill] [target]
                          Print a task prompt, selecting a task if omitted
   task skills <action>    Install, inspect, or uninstall personal skills
@@ -142,6 +143,30 @@ function skilllessPromptFor(
     "",
     "Can you make a commit with a detailed message describing the work done?",
   ].join("\n");
+}
+
+async function initTasks(
+  services: CliServices,
+  base: string | undefined,
+): Promise<number> {
+  if (base) {
+    services.out(`Found existing .tasks directory: ${join(base, ".tasks")}`);
+    return 0;
+  }
+
+  const tasksDirectory = join(services.cwd, ".tasks");
+  if (
+    !(await services.confirm(
+      `Create .tasks directory in ${services.cwd}?`,
+    ))
+  ) {
+    services.out("Cancelled.");
+    return 0;
+  }
+
+  mkdirSync(tasksDirectory);
+  services.out(`Created .tasks directory: ${tasksDirectory}`);
+  return 0;
 }
 
 function resolvePromptTarget(
@@ -642,6 +667,13 @@ export async function runCli(
     }
 
     const base = findTasksBase(services.cwd);
+    if (args[0] === "init") {
+      if (args.length !== 1) {
+        services.error("Usage: task init");
+        return 2;
+      }
+      return await initTasks(services, base);
+    }
     if (args[0] === "-p") {
       const parsed = parsePrintArguments(args.slice(1));
       return await printTaskPrompt(
