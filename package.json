@@ -1,31 +1,42 @@
 {
   "name": "tasks",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A small CLI for organizing repository tasks and generating coding-agent prompts",
   "bin": {
     "task": "./task.ts"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "cli",
+    "coding-agent",
+    "task-management"
+  ],
+  "author": "Jared Forsyth",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jaredly/task.git"
+  },
+  "homepage": "https://github.com/jaredly/task#readme",
+  "bugs": {
+    "url": "https://github.com/jaredly/task/issues"
+  },
   "engines": {
     "node": ">=24.12.0"
   },
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "11.1.3",
-      "onFail": "download"
-    }
-  },
+  "packageManager": "pnpm@11.1.3",
   "type": "module",
   "devDependencies": {
     "@types/node": "^26.1.1",
+    "@types/shell-quote": "^1.7.5",
     "typescript": "^7.0.2"
   },
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@inquirer/prompts": "^8.5.2",
+    "shell-quote": "^1.10.0"
+  }
 }

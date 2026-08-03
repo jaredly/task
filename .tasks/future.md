@@ -1,0 +1,4 @@
+- need a -h command
+- -a without -f doesn't do anything maybe
+- let's use EDITOR instead of always zed to edit the task.md
+- is there a way to hook into your claude or something ... or specify a skill so you can just do /research [name] instead of the full text?
