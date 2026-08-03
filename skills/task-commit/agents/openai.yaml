@@ -1,0 +1,4 @@
+interface:
+  display_name: "Task Commit"
+  short_description: "Review and commit completed task changes"
+  default_prompt: "Use $task-commit to review and commit this completed task."

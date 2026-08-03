@@ -15,6 +15,25 @@ import {
 } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import type { AgentSessionInfo, TaskAgent } from "./agent.ts";
+import { manageSkills, type SkillAction } from "./skills.ts";
+import {
+  defaultBrief,
+  hasOpenQuestions,
+  inferStageFromArtifacts,
+  inferTaskKind,
+  initialStage,
+  nextStage,
+  promptForStage,
+  readAgentState,
+  targetFromTaskFile,
+  writeAgentState,
+  workflowStages,
+  type TaskKind,
+  type TaskTarget,
+  type WorkflowStage,
+} from "./workflow.ts";
+
 export type Choice = {
   name: string;
   value: string;
@@ -30,17 +49,21 @@ export type CliServices = {
   chooseOne: (message: string, choices: Choice[]) => Promise<string>;
   chooseMany: (message: string, choices: Choice[]) => Promise<string[]>;
   confirm: (message: string) => Promise<boolean>;
+  agent?: TaskAgent;
+  homeDir?: string;
+  skillsRoot?: string;
   out: (message: string) => void;
   error: (message: string) => void;
 };
-
-type TaskKind = "task" | "simple" | "bug";
 
 const help = `Usage:
   task <name...>          Create a standard task
   task simple <name...>   Create a simple task
   task bug <name...>      Create a bug task
-  task -p [target]        Print a task prompt, selecting a task if omitted
+  task -p [--no-skill] [target]
+                         Print a task prompt, selecting a task if omitted
+  task skills <action>    Install, inspect, or uninstall personal skills
+  task agent <action>     Start, advance, or inspect a Codex ACP workflow
   task -a                 Select completed tasks to archive
   task -h, --help         Show this help
   task --version          Show the version`;
@@ -78,20 +101,22 @@ function taskPrefix(now: Date): string {
   return minutes.toString(36).padStart(maxMinutes.toString(36).length, "0");
 }
 
-function inferTaskKind(fullName: string): TaskKind {
-  const parts = fullName.split("-");
-  const possibleKind =
-    parts[0] === "bug" || parts[0] === "simple" ? parts[0] : parts[1];
-  return possibleKind === "bug" || possibleKind === "simple"
-    ? possibleKind
-    : "task";
-}
-
-function defaultBrief(kind: TaskKind): string {
-  return kind === "bug" ? "bug.md" : "task.md";
-}
-
 function promptFor(kind: TaskKind, fullName: string, taskFile: string): string {
+  return promptForStage(
+    {
+      ...targetFromTaskFile(taskFile),
+      fullName,
+      kind,
+    },
+    initialStage(kind),
+  );
+}
+
+function skilllessPromptFor(
+  kind: TaskKind,
+  fullName: string,
+  taskFile: string,
+): string {
   const taskName = basename(taskFile);
   const link = `[@${taskName}](${pathToFileURL(taskFile).href})`;
 
@@ -123,7 +148,7 @@ function resolvePromptTarget(
   target: string,
   cwd: string,
   base: string | undefined,
-): { fullName: string; taskFile: string } {
+): TaskTarget {
   const isMarkdown = target.endsWith(".md");
   const isPath =
     isAbsolute(target) ||
@@ -139,9 +164,12 @@ function resolvePromptTarget(
   const fullName = basename(taskDirectory);
   const kind = inferTaskKind(fullName);
 
+  const taskFile = isMarkdown ? targetPath : join(taskDirectory, defaultBrief(kind));
   return {
     fullName,
-    taskFile: isMarkdown ? targetPath : join(taskDirectory, defaultBrief(kind)),
+    taskFile,
+    directory: dirname(taskFile),
+    kind,
   };
 }
 
@@ -205,6 +233,7 @@ function activeTaskChoices(base: string): Choice[] {
 
 async function printTaskPrompt(
   target: string | undefined,
+  useSkills: boolean,
   services: CliServices,
   base: string | undefined,
 ): Promise<number> {
@@ -222,14 +251,231 @@ async function printTaskPrompt(
     selectedTarget = await services.chooseOne("Select a task to continue", choices);
   }
 
-  const { fullName, taskFile } = resolvePromptTarget(
+  const { fullName, taskFile, kind } = resolvePromptTarget(
     selectedTarget,
     services.cwd,
     base,
   );
-  services.out(promptFor(inferTaskKind(fullName), fullName, taskFile));
+  services.out(
+    useSkills
+      ? promptFor(kind, fullName, taskFile)
+      : skilllessPromptFor(kind, fullName, taskFile),
+  );
   return 0;
 }
+
+function parsePrintArguments(args: string[]): {
+  target?: string;
+  useSkills: boolean;
+} {
+  let target: string | undefined;
+  let useSkills = true;
+  for (const argument of args) {
+    if (argument === "--no-skill") {
+      useSkills = false;
+    } else if (argument.startsWith("-")) {
+      throw new UsageError(`Unknown task -p option: ${argument}`);
+    } else if (!target) {
+      target = argument;
+    } else {
+      throw new UsageError("task -p accepts at most one target");
+    }
+  }
+  return { target, useSkills };
+}
+
+async function selectTaskTarget(
+  target: string | undefined,
+  services: CliServices,
+  base: string | undefined,
+): Promise<TaskTarget | undefined> {
+  let selected = target;
+  if (!selected) {
+    if (!base) throw new Error("Unable to find a .tasks directory for task selection");
+    const choices = activeTaskChoices(base);
+    if (choices.length === 0) {
+      services.out("No active tasks found.");
+      return undefined;
+    }
+    selected = await services.chooseOne("Select a task", choices);
+  }
+  const resolved = resolvePromptTarget(selected, services.cwd, base);
+  if (!existsSync(resolved.taskFile)) {
+    throw new Error(`Task brief not found: ${resolved.taskFile}`);
+  }
+  return resolved;
+}
+
+function parseAgentArguments(args: string[]): {
+  action: "start" | "next" | "status";
+  target?: string;
+  stage?: WorkflowStage;
+  newSession: boolean;
+} {
+  const action = args[0];
+  if (action !== "start" && action !== "next" && action !== "status") {
+    throw new UsageError("task agent requires start, next, or status");
+  }
+  let target: string | undefined;
+  let stage: WorkflowStage | undefined;
+  let newSession = false;
+  for (let index = 1; index < args.length; index += 1) {
+    const value = args[index];
+    if (value === "--stage") {
+      const candidate = args[index + 1] as WorkflowStage | undefined;
+      if (!candidate || !workflowStages.includes(candidate)) {
+        throw new UsageError(`Invalid workflow stage: ${candidate ?? "missing"}`);
+      }
+      stage = candidate;
+      index += 1;
+    } else if (value === "--new-session") {
+      newSession = true;
+    } else if (!target) {
+      target = value;
+    } else {
+      throw new UsageError("task agent accepts at most one target");
+    }
+  }
+  if (action === "status" && stage) {
+    throw new UsageError("task agent status does not accept --stage");
+  }
+  if (newSession && action !== "start") {
+    throw new UsageError("--new-session is only valid with task agent start");
+  }
+  return { action, target, stage, newSession };
+}
+
+async function discoverSession(
+  agent: TaskAgent,
+  target: TaskTarget,
+  cwd: string,
+  services: CliServices,
+): Promise<string | undefined> {
+  const sessions = await agent.listSessions(cwd);
+  let matches = sessions.filter((session) =>
+    containsTaskId(session.title, target.fullName),
+  );
+  if (matches.length === 0) {
+    const replayMatches: AgentSessionInfo[] = [];
+    for (const session of sessions) {
+      const first = await agent.firstUserMessage(session.sessionId, cwd);
+      if (containsTaskId(first, target.fullName)) replayMatches.push(session);
+    }
+    matches = replayMatches;
+  }
+  if (matches.length === 0) return undefined;
+  if (matches.length === 1) return matches[0].sessionId;
+  return await services.chooseOne(
+    `Select the Codex session for ${target.fullName}`,
+    matches.map((session) => ({
+      name: session.title || session.sessionId,
+      value: session.sessionId,
+      description: session.updatedAt ?? undefined,
+    })),
+  );
+}
+
+function containsTaskId(value: string | null | undefined, taskId: string): boolean {
+  if (!value) return false;
+  const index = value.indexOf(taskId);
+  if (index < 0) return false;
+  const boundary = (character: string | undefined) =>
+    character === undefined || !/[A-Za-z0-9_-]/u.test(character);
+  return boundary(value[index - 1]) && boundary(value[index + taskId.length]);
+}
+
+async function runAgentCommand(
+  args: string[],
+  services: CliServices,
+  base: string | undefined,
+): Promise<number> {
+  const parsed = parseAgentArguments(args);
+  const target = await selectTaskTarget(parsed.target, services, base);
+  if (!target) return 0;
+  const state = readAgentState(target);
+
+  if (parsed.action === "status") {
+    const inferred = state
+      ? nextStage(target.kind, state.lastCompletedStage)
+      : inferStageFromArtifacts(target);
+    services.out(
+      state
+        ? `Session: ${state.sessionId}\nLast completed: ${state.lastCompletedStage}\nNext: ${inferred ?? "complete"}`
+        : `No saved agent session.\nInferred next stage: ${inferred ?? "complete"}`,
+    );
+    return 0;
+  }
+
+  if (!services.agent) {
+    services.error("Codex ACP support is unavailable in this CLI environment");
+    return 1;
+  }
+  if (parsed.action === "start" && state && !parsed.newSession) {
+    services.error(`Task already has an agent session: ${state.sessionId}`);
+    return 1;
+  }
+  if (parsed.action === "start" && state && parsed.newSession) {
+    if (!(await services.confirm(`Replace agent session ${state.sessionId} with a new session?`))) {
+      services.out("Cancelled.");
+      return 0;
+    }
+  }
+
+  let sessionId = parsed.newSession ? undefined : state?.sessionId;
+  let stage = parsed.action === "start"
+    ? initialStage(target.kind)
+    : state
+      ? nextStage(target.kind, state.lastCompletedStage)
+      : inferStageFromArtifacts(target);
+
+  if (parsed.stage && parsed.stage !== stage) {
+    if (!(await services.confirm(`Override inferred stage ${stage ?? "complete"} with ${parsed.stage}?`))) {
+      services.out("Cancelled.");
+      return 0;
+    }
+    stage = parsed.stage;
+  }
+  if (!stage) {
+    services.out("Workflow is complete.");
+    return 0;
+  }
+
+  if (!state && parsed.action === "next") {
+    sessionId = await discoverSession(services.agent, target, base ?? services.cwd, services);
+    const message = sessionId
+      ? `Resume Codex session ${sessionId} outside Zed at inferred stage ${stage}?`
+      : `No matching session was found. Create one at inferred stage ${stage}?`;
+    if (!(await services.confirm(message))) {
+      services.out("Cancelled.");
+      return 0;
+    }
+  }
+  if (stage === "plan" && hasOpenQuestions(target)) {
+    if (!(await services.confirm("Research contains an Open questions section. Were all questions answered or intentionally left open?"))) {
+      services.out("Planning cancelled.");
+      return 0;
+    }
+  }
+
+  services.out(`Starting ${stage} for ${target.fullName}...`);
+  const result = await services.agent.runTurn({
+    cwd: base ?? services.cwd,
+    prompt: promptForStage(target, stage),
+    sessionId,
+  });
+  writeAgentState(target, {
+    version: 1,
+    agent: "codex-acp",
+    sessionId: result.sessionId,
+    cwd: base ?? services.cwd,
+    taskId: target.fullName,
+    lastCompletedStage: stage,
+  });
+  services.out(`Completed ${stage}.`);
+  return 0;
+}
+
+class UsageError extends Error {}
 
 export function formatAge(milliseconds: number): string {
   const seconds = Math.max(0, Math.floor(milliseconds / 1_000));
@@ -397,11 +643,13 @@ export async function runCli(
 
     const base = findTasksBase(services.cwd);
     if (args[0] === "-p") {
-      if (args.length > 2) {
-        services.error("task -p accepts at most one target");
-        return 2;
-      }
-      return await printTaskPrompt(args[1], services, base);
+      const parsed = parsePrintArguments(args.slice(1));
+      return await printTaskPrompt(
+        parsed.target,
+        parsed.useSkills,
+        services,
+        base,
+      );
     }
     if (args[0] === "-a") {
       if (args.length > 1) {
@@ -411,6 +659,24 @@ export async function runCli(
         return 2;
       }
       return await archiveTasks(services, base);
+    }
+    if (args[0] === "skills") {
+      if (
+        args.length !== 2 ||
+        !["install", "status", "uninstall"].includes(args[1])
+      ) {
+        services.error("Usage: task skills <install|status|uninstall>");
+        return 2;
+      }
+      return manageSkills(args[1] as SkillAction, {
+        home: services.homeDir,
+        sourceRoot: services.skillsRoot,
+        out: services.out,
+        error: services.error,
+      });
+    }
+    if (args[0] === "agent") {
+      return await runAgentCommand(args.slice(1), services, base);
     }
     if (args[0].startsWith("-")) {
       services.error(`Unknown option: ${args[0]}. Run task -h for usage.`);
@@ -422,6 +688,10 @@ export async function runCli(
     if (error instanceof Error && error.name === "ExitPromptError") {
       services.out("Cancelled.");
       return 0;
+    }
+    if (error instanceof UsageError) {
+      services.error(error.message);
+      return 2;
     }
     services.error(errorMessage(error));
     return 1;

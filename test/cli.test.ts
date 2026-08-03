@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
+import type { AgentTurnRequest, TaskAgent } from "../agent.ts";
 import {
   findTasksBase,
   formatAge,
@@ -22,6 +23,7 @@ import {
   type Choice,
   type CliServices,
 } from "../cli.ts";
+import { readAgentState, targetFromTaskFile, writeAgentState } from "../workflow.ts";
 
 function fixture(): string {
   const root = mkdtempSync(join(tmpdir(), "tasks-test-"));
@@ -49,6 +51,29 @@ function harness(
     ...overrides,
   };
   return { services, output, errors };
+}
+
+function activeBrief(root: string, name: string): string {
+  const directory = join(root, ".tasks", name);
+  mkdirSync(directory, { recursive: true });
+  const brief = join(directory, name.includes("-bug-") ? "bug.md" : "task.md");
+  writeFileSync(brief, "brief");
+  return brief;
+}
+
+function fakeAgent(
+  turns: AgentTurnRequest[],
+  overrides: Partial<TaskAgent> = {},
+): TaskAgent {
+  return {
+    runTurn: async (request) => {
+      turns.push(request);
+      return { sessionId: request.sessionId ?? "new-session", stopReason: "end_turn" };
+    },
+    listSessions: async () => [],
+    firstUserMessage: async () => undefined,
+    ...overrides,
+  };
 }
 
 test("findTasksBase searches parents", () => {
@@ -142,6 +167,7 @@ test("creation normalizes punctuation and encodes paths in prompt URLs", async (
 
   assert.equal(await runCli(["path/to", "shell;$name"], current.services), 0);
   assert.match(current.output[0], /-path-to-shell-name:/);
+  assert.match(current.output[0], /\$task-research/);
   assert.match(current.output[0], /file:\/\/.*tasks%20test-/);
   assert.doesNotMatch(current.output[0], /shell;\$name/);
 });
@@ -152,13 +178,13 @@ test("explicit prompt targets are permissive and preserve Markdown names", async
   const bare = harness(root);
   assert.equal(await runCli(["-p", "06abc-bug-missing"], bare.services), 0);
   assert.match(bare.output[0], /^06abc-bug-missing:/);
-  assert.match(bare.output[0], /create a failing repro test/);
+  assert.match(bare.output[0], /\$task-bugfix/);
   assert.match(bare.output[0], /\.tasks\/06abc-bug-missing\/bug\.md/);
 
   const markdown = harness(root);
   assert.equal(await runCli(["-p", "brief.md"], markdown.services), 0);
   assert.match(markdown.output[0], /^tasks-test-[^:]+:/);
-  assert.match(markdown.output[0], /@brief\.md/);
+  assert.match(markdown.output[0], /\$task-research/);
   assert.match(markdown.output[0], /tasks-test-[^/]+\/brief\.md/);
 
   const outside = mkdtempSync(join(tmpdir(), "tasks-outside-"));
@@ -177,8 +203,52 @@ test("explicit prompt accepts archived and relative directory paths", async () =
     await runCli(["-p", ".tasks/000-archive/06abc-simple-old"], current.services),
     0,
   );
-  assert.match(current.output[0], /let me know if you have any questions/);
+  assert.match(current.output[0], /\$task-implement/);
   assert.match(current.output[0], /000-archive\/06abc-simple-old\/task\.md/);
+});
+
+test("--no-skill restores standard, simple, and bug prompt transcripts", async () => {
+  const root = mkdtempSync(join(tmpdir(), "tasks no skill-"));
+  mkdirSync(join(root, ".tasks"));
+
+  const standard = harness(root);
+  assert.equal(
+    await runCli(["-p", "--no-skill", "06abc-standard"], standard.services),
+    0,
+  );
+  assert.match(standard.output[0], /\[@task\.md\]\(file:\/\/.*tasks%20no%20skill-/u);
+  assert.match(standard.output[0], /write up a research\.md/u);
+  assert.match(standard.output[0], /write up a plan\.md/u);
+  assert.match(standard.output[0], /make a commit with a detailed message/u);
+  assert.doesNotMatch(standard.output[0], /\$task-/u);
+
+  const simple = harness(root);
+  assert.equal(
+    await runCli(["-p", "06abc-simple-work", "--no-skill"], simple.services),
+    0,
+  );
+  assert.match(simple.output[0], /let me know if you have any questions/u);
+  assert.match(simple.output[0], /Go ahead and implement/u);
+
+  const bug = harness(root);
+  assert.equal(
+    await runCli(["-p", "--no-skill", "06abc-bug-work"], bug.services),
+    0,
+  );
+  assert.match(bug.output[0], /create a failing repro test/u);
+  assert.match(bug.output[0], /otherwise you can proceed with a fix/u);
+});
+
+test("--no-skill supports task selection and rejects unknown print options", async () => {
+  const root = fixture();
+  mkdirSync(join(root, ".tasks", "06abc-active"));
+  const selected = harness(root);
+  assert.equal(await runCli(["-p", "--no-skill"], selected.services), 0);
+  assert.match(selected.output[0], /write up a research\.md/u);
+
+  const invalid = harness(root);
+  assert.equal(await runCli(["-p", "--wat"], invalid.services), 2);
+  assert.match(invalid.errors[0], /Unknown task -p option/u);
 });
 
 test("prompt selection lists active tasks newest first", async () => {
@@ -231,6 +301,96 @@ test("prompt selection requires a repository and rejects extra targets", async (
   const extra = harness(outside);
   assert.equal(await runCli(["-p", "one", "two"], extra.services), 2);
   assert.match(extra.errors[0], /at most one target/);
+});
+
+test("agent start and next persist successful standard stages", async () => {
+  const root = fixture();
+  const brief = activeBrief(root, "06abc-work");
+  const turns: AgentTurnRequest[] = [];
+  const current = harness(root, { agent: fakeAgent(turns), confirm: async () => true });
+
+  assert.equal(await runCli(["agent", "start", "06abc-work"], current.services), 0);
+  assert.equal(turns[0].sessionId, undefined);
+  assert.match(turns[0].prompt, /\$task-research/u);
+  assert.equal(readAgentState(targetFromTaskFile(brief))?.lastCompletedStage, "research");
+
+  assert.equal(await runCli(["agent", "next", "06abc-work"], current.services), 0);
+  assert.equal(turns[1].sessionId, "new-session");
+  assert.match(turns[1].prompt, /\$task-plan/u);
+  assert.equal(readAgentState(targetFromTaskFile(brief))?.lastCompletedStage, "plan");
+});
+
+test("agent state does not advance after a failed turn", async () => {
+  const root = fixture();
+  const brief = activeBrief(root, "06abc-failure");
+  const current = harness(root, {
+    agent: fakeAgent([], { runTurn: async () => { throw new Error("agent failed"); } }),
+  });
+
+  assert.equal(await runCli(["agent", "start", "06abc-failure"], current.services), 1);
+  assert.equal(readAgentState(targetFromTaskFile(brief)), undefined);
+  assert.match(current.errors[0], /agent failed/u);
+});
+
+test("agent recovery confirms exact session and keeps partial logs at implementation", async () => {
+  const root = fixture();
+  const brief = activeBrief(root, "06abc-recover");
+  const directory = join(root, ".tasks", "06abc-recover");
+  writeFileSync(join(directory, "research.md"), "done");
+  writeFileSync(join(directory, "plan.md"), "done");
+  writeFileSync(join(directory, "implementation-log.md"), "started");
+  const turns: AgentTurnRequest[] = [];
+  const agent = fakeAgent(turns, {
+    listSessions: async () => [
+      { sessionId: "wrong", title: "06abc-recovery: other" },
+      { sessionId: "match", title: "06abc-recover: original request" },
+    ],
+  });
+  const current = harness(root, { agent, confirm: async () => true });
+
+  assert.equal(await runCli(["agent", "next", "06abc-recover"], current.services), 0);
+  assert.equal(turns[0].sessionId, "match");
+  assert.match(turns[0].prompt, /\$task-implement/u);
+  assert.equal(readAgentState(targetFromTaskFile(brief))?.lastCompletedStage, "implement");
+});
+
+test("agent planning stops when open-question confirmation is rejected", async () => {
+  const root = fixture();
+  const brief = activeBrief(root, "06abc-questions");
+  const target = targetFromTaskFile(brief);
+  writeFileSync(join(target.directory, "research.md"), "## Open questions\n\n1. Choice?\n");
+  writeAgentState(target, { version: 1, agent: "codex-acp", sessionId: "saved", cwd: root, taskId: target.fullName, lastCompletedStage: "research" });
+  const turns: AgentTurnRequest[] = [];
+  const current = harness(root, { agent: fakeAgent(turns), confirm: async () => false });
+
+  assert.equal(await runCli(["agent", "next", "06abc-questions"], current.services), 0);
+  assert.equal(turns.length, 0);
+  assert.deepEqual(current.output, ["Planning cancelled."]);
+});
+
+test("agent stage overrides and session replacement require confirmation", async () => {
+  const root = fixture();
+  const brief = activeBrief(root, "06abc-override");
+  const target = targetFromTaskFile(brief);
+  writeAgentState(target, { version: 1, agent: "codex-acp", sessionId: "saved", cwd: root, taskId: target.fullName, lastCompletedStage: "research" });
+  const turns: AgentTurnRequest[] = [];
+  const rejected = harness(root, { agent: fakeAgent(turns), confirm: async () => false });
+  assert.equal(await runCli(["agent", "next", "06abc-override", "--stage", "commit"], rejected.services), 0);
+  assert.equal(turns.length, 0);
+
+  const accepted = harness(root, { agent: fakeAgent(turns), confirm: async () => true });
+  assert.equal(await runCli(["agent", "start", "06abc-override", "--new-session"], accepted.services), 0);
+  assert.equal(turns[0].sessionId, undefined);
+});
+
+test("agent status is read-only and invalid usage returns exit 2", async () => {
+  const root = fixture();
+  activeBrief(root, "06abc-status");
+  const current = harness(root);
+  assert.equal(await runCli(["agent", "status", "06abc-status"], current.services), 0);
+  assert.match(current.output[0], /Inferred next stage: research/u);
+  assert.equal(await runCli(["agent", "next", "06abc-status", "--new-session"], current.services), 2);
+  assert.match(current.errors[0], /only valid/u);
 });
 
 function archiveTask(root: string, name: string, modifiedAt: Date): string {

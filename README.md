@@ -2,7 +2,7 @@
 
 A small Node.js CLI for organizing coding tasks in a repository and generating prompts for an AI coding agent.
 
-Each task lives in the nearest `.tasks` directory and receives a compact, sortable time prefix. The CLI opens a Markdown brief in your editor, then prints a prompt that references the brief and describes the expected workflow.
+Each task lives in the nearest `.tasks` directory and receives a compact, sortable time prefix. The CLI opens a Markdown brief in your editor, then prints a compact Codex skill invocation. It can also own and advance a Codex ACP session explicitly.
 
 ## Requirements
 
@@ -36,6 +36,15 @@ mkdir .tasks
 
 The CLI can be run from any descendant directory. It walks up the directory tree to find the nearest `.tasks` directory.
 
+Install the five bundled skills for all repositories with:
+
+```sh
+task skills install
+task skills status
+```
+
+The installer creates owned symlinks in `~/.agents/skills`; it never replaces an existing path. `task skills uninstall` removes only symlinks pointing to this installation. Restart Codex or its Zed External Agent after changing installed skills. Symlink installation is supported on macOS and Linux; Windows may require Developer Mode or elevated symlink privileges.
+
 ### Editor configuration
 
 Task briefs are opened using `$VISUAL`, then `$EDITOR`, falling back to `vi`. Editor flags and quoted paths are supported without invoking a shell:
@@ -66,7 +75,10 @@ Usage:
   task <name...>          Create a standard task
   task simple <name...>   Create a simple task
   task bug <name...>      Create a bug task
-  task -p [target]        Print a task prompt, selecting a task if omitted
+  task -p [--no-skill] [target]
+                         Print a task prompt, selecting a task if omitted
+  task skills <action>    Install, inspect, or uninstall personal skills
+  task agent <action>     Start, advance, or inspect a Codex ACP workflow
   task -a                 Select completed tasks to archive
   task -h, --help         Show this help
   task --version          Show the version
@@ -85,7 +97,7 @@ This creates a directory similar to:
 └── task.md
 ```
 
-The generated prompt guides the agent through research, planning, phased implementation, and a final commit.
+The generated prompt begins with `$task-research`. Standard tasks then advance through `$task-plan`, `$task-implement`, and `$task-commit`; each stage stops at its stated boundary.
 
 ### Create a simple task
 
@@ -93,7 +105,7 @@ The generated prompt guides the agent through research, planning, phased impleme
 task simple update dependencies
 ```
 
-Simple tasks use a shorter workflow: review the brief, ask necessary questions, implement the change, and record progress in `implementation-log.md`.
+Simple tasks invoke `$task-implement`, which reviews the brief, asks only blocking questions, implements and verifies the change, records progress in `implementation-log.md`, and makes a scoped commit.
 
 ### Create a bug task
 
@@ -101,7 +113,7 @@ Simple tasks use a shorter workflow: review the brief, ask necessary questions, 
 task bug login redirect
 ```
 
-Bug tasks create `bug.md`. Their prompt asks the agent to begin with a failing reproduction test, proceed with a fix when possible, and keep an implementation log.
+Bug tasks create `bug.md` and invoke `$task-bugfix`. The skill requires a failing reproduction before the fix, verification, an implementation log, and a scoped commit.
 
 `simple` and `bug` are reserved when used as the first argument. The rest of the name is joined with dashes. Characters outside ASCII letters, numbers, `_`, and `-` are converted to dashes; consecutive dashes are collapsed.
 
@@ -125,6 +137,37 @@ task -p .tasks/000-archive/06m8q-bug-login-redirect/bug.md
 
 Explicit targets do not need to exist. Bare names resolve under the nearest `.tasks` directory when one is available; paths resolve relative to the current directory. The workflow is inferred from the task directory name, and an explicit Markdown filename is preserved.
 
+The printed prompt starts with the task ID and passes the brief as an encoded absolute `file:` URL. `task -p` never starts an agent and remains the fallback for pasting a command into Codex CLI or Zed. In Zed's command menu, the adapter may display a skill as `/$task-research`; the underlying skill name is unchanged.
+
+Use `--no-skill` to print the original self-contained workflow transcript instead. The option works with an explicit target in either order or with the interactive picker:
+
+```sh
+task -p --no-skill 06m8p-add-search-filters
+task -p --no-skill
+```
+
+This affects only printed prompts. Task creation and `task agent` continue to use the bundled skills.
+
+## Codex ACP workflow
+
+Agent mode starts or advances exactly one stage per explicit command:
+
+```sh
+task agent start 06m8p-add-search-filters
+task agent status 06m8p-add-search-filters
+task agent next 06m8p-add-search-filters
+```
+
+Omit the target to use the active-task picker. `start` creates a Codex session; `next` resumes it and runs one stage; `status` reads local state without starting Codex. Standard stages are research, plan, implement, and commit. Simple and bug tasks each use one combined implementation-and-commit stage.
+
+After a successful turn, the CLI atomically writes `.agent.json` beside the brief with the Codex session ID and last completed stage. Failed and cancelled turns do not advance it. Before planning when `research.md` has an `Open questions` heading, the CLI requires confirmation and defaults to stopping.
+
+If `.agent.json` is missing, `next` infers a conservative stage from artifacts, looks for the exact task ID in Codex session metadata or the first user message, and asks before adopting the session. A partial `implementation-log.md` never implies that implementation is complete. Use `--stage <stage>` to recover from stale stage data; conflicting overrides require confirmation. Use `task agent start <target> --new-session` to replace an association, also with confirmation.
+
+Agent mode uses the installed `codex-acp` package and the user's existing Codex authentication. Permission requests are interactive with rejection choices ordered first. `Ctrl-C` requests cancellation. Do not operate on the same Codex thread concurrently from Zed and this CLI.
+
+CLI-owned sessions can later be loaded by a compatible Zed Codex External Agent, but this does not inject into or live-update an already-open Zed thread. Active-thread bridging remains outside this implementation.
+
 ## Archiving
 
 Any direct child task containing `implementation-log.md` is eligible for archive review. Start the interactive flow with:
@@ -146,7 +189,8 @@ Cancellation, an empty selection, or rejecting confirmation makes no filesystem 
 │   ├── task.md
 │   ├── research.md
 │   ├── plan.md
-│   └── implementation-log.md
+│   ├── implementation-log.md
+│   └── .agent.json
 └── 06m8q-bug-login-redirect/
     ├── bug.md
     └── implementation-log.md

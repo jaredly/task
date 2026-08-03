@@ -1,0 +1,4 @@
+interface:
+  display_name: "Task Bugfix"
+  short_description: "Reproduce, fix, verify, and commit a bug"
+  default_prompt: "Use $task-bugfix to reproduce and fix this bug."

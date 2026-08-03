@@ -1,0 +1,16 @@
+---
+name: task-plan
+description: Turn a repository task brief and its research.md, including inline answers, into an adjacent phased plan.md. Use for the planning stage of a standard .tasks workflow after research and before implementation.
+---
+
+# Task Plan
+
+1. Resolve the task from the supplied brief or directory. If omitted, find a unique task ID or task-file link in the earliest relevant user message. Ask when ambiguous; never guess from directory recency.
+2. Read the brief, `research.md`, inline answers under `## Open questions`, repository instructions, and the current code paths the plan will change.
+3. If questions appear unanswered or contradictory, ask whether they were intentionally left open before planning. Do not silently invent decisions.
+4. Write `plan.md` beside the brief. Preserve substantive existing plan content unless the user clearly requested a revision.
+5. Divide the work into dependency-ordered phases. For each phase, identify concrete files or modules, behavior changes, error cases, tests, documentation, and validation.
+6. Include explicit out-of-scope work and completion criteria when they prevent scope drift.
+7. Stop after the plan is complete. Do not edit implementation files, create an implementation log, or commit.
+
+Completion requires an actionable `plan.md` consistent with the brief, research, and inline decisions.

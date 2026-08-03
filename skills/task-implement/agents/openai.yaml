@@ -1,0 +1,4 @@
+interface:
+  display_name: "Task Implement"
+  short_description: "Implement a planned or simple task"
+  default_prompt: "Use $task-implement to implement this task and maintain its log."

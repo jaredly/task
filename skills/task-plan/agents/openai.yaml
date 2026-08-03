@@ -1,0 +1,4 @@
+interface:
+  display_name: "Task Plan"
+  short_description: "Turn task research into an implementation plan"
+  default_prompt: "Use $task-plan to write a phased plan.md for this task."
