@@ -1,12 +1,12 @@
 # tasks
 
-A small Bun CLI for organizing coding tasks in a repository and generating prompts for an AI coding agent.
+A small Node.js CLI for organizing coding tasks in a repository and generating prompts for an AI coding agent.
 
 Each task is stored in the nearest `.tasks` directory and receives a sortable, time-based prefix. The CLI opens a Markdown brief for editing, then prints a prompt that references the brief and describes the expected workflow.
 
 ## Requirements
 
-- [Bun](https://bun.sh/)
+- Node.js 24.12 or newer
 - [Zed](https://zed.dev/) available as `zed` on your `PATH`
 - A repository or parent directory containing a `.tasks` directory
 
@@ -23,13 +23,13 @@ pnpm install
 Run the executable directly:
 
 ```sh
-/path/to/tasks/task simple update-dependencies
+/path/to/tasks/task.ts simple update-dependencies
 ```
 
 For convenient global use, add the project directory to your `PATH` or symlink `task` into a directory already on your `PATH`:
 
 ```sh
-ln -s /path/to/tasks/task ~/.local/bin/task
+ln -s /path/to/tasks/task.ts ~/.local/bin/task
 ```
 
 In each repository where tasks should be managed, create a `.tasks` directory:
@@ -131,10 +131,10 @@ The prefix is the number of minutes since January 1, 2026, encoded in base 36 an
 
 ## Development
 
-The CLI is implemented as an executable TypeScript file run directly by Bun. There is currently no build step or automated test suite.
+The CLI runs directly from `task.ts` using Node.js's built-in TypeScript type stripping. There is no build step or automated test suite. Node executes the TypeScript source without type-checking it; the TypeScript development dependency can be used when static checking is needed.
 
 ```sh
-./task -p example-task
+./task.ts -p example-task
 ```
 
 The project is private and licensed under ISC as declared in `package.json`.

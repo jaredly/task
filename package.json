@@ -3,12 +3,18 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "bin": {
+    "task": "./task.ts"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": ">=24.12.0"
+  },
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
@@ -19,8 +25,7 @@
   "type": "module",
   "devDependencies": {
     "@types/node": "^26.1.1",
-    "typescript": "^7.0.2",
-    "@types/bun": "latest"
+    "typescript": "^7.0.2"
   },
   "private": true
 }

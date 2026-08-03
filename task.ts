@@ -1,8 +1,8 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 import { execSync, spawn } from "child_process";
 import fs, { existsSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "fs";
 import { join, dirname, relative, basename } from "path";
-import { editFile } from './editFile'
+import { editFile } from './editFile.ts'
 const [_, __, ...name] = process.argv;
 
 const now = new Date();
