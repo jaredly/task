@@ -269,7 +269,7 @@ test("explicit prompt accepts archived and relative directory paths", async () =
     await runCli(["-p", ".tasks/000-archive/06abc-simple-old"], current.services),
     0,
   );
-  assert.match(current.output[0], /\$task-implement/);
+  assert.match(current.output[0], /\$task-simple/);
   assert.match(current.output[0], /000-archive\/06abc-simple-old\/task\.md/);
 });
 

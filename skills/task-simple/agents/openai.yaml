@@ -1,0 +1,4 @@
+interface:
+  display_name: "Task Simple"
+  short_description: "Implement, verify, and commit a simple task"
+  default_prompt: "Use $task-simple to implement and commit this simple task."

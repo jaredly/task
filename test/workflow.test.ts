@@ -51,7 +51,7 @@ test("open questions and encoded skill prompts are detected", () => {
   const current = target("06abc-simple-work");
   writeFileSync(join(current.directory, "research.md"), "# Research\n\n## Open questions\n\nNone.\n");
   assert.equal(hasOpenQuestions(current), true);
-  assert.match(promptForStage(current, "implement-and-commit"), /^06abc-simple-work: \$task-implement file:/u);
+  assert.match(promptForStage(current, "implement-and-commit"), /^06abc-simple-work: \$task-simple file:/u);
 });
 
 test("agent state round trips and rejects invalid stages", () => {

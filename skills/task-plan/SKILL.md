@@ -6,7 +6,7 @@ description: Turn a repository task brief and its research.md, including inline 
 # Task Plan
 
 1. Resolve the task from the supplied brief or directory. If omitted, find a unique task ID or task-file link in the earliest relevant user message. Ask when ambiguous; never guess from directory recency.
-2. Read the brief, `research.md`, inline answers under `## Open questions`, repository instructions, and the current code paths the plan will change.
+2. Re-read the brief and `research.md` from disk, including inline answers under `## Open questions` that the user may have added after research, then read repository instructions and the current code paths the plan will change.
 3. If questions appear unanswered or contradictory, ask whether they were intentionally left open before planning. Do not silently invent decisions.
 4. Write `plan.md` beside the brief. Preserve substantive existing plan content unless the user clearly requested a revision.
 5. Divide the work into dependency-ordered phases. For each phase, identify concrete files or modules, behavior changes, error cases, tests, documentation, and validation.

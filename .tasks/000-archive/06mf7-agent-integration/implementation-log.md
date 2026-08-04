@@ -48,3 +48,11 @@
 
 - Added `task -p --no-skill [target]` to preserve the original standard, simple, and bug prompt transcripts while keeping skill invocations as the default.
 - The flag is order-independent with an explicit target and also works with the task picker. Unknown print options fail with usage exit code `2`.
+
+## Follow-up: dedicated simple-task skill
+
+- Added `$task-simple` and routed simple task creation and ACP `implement-and-commit` turns to it.
+- The simple skill explicitly skips `research.md` and `plan.md`, implements directly from `task.md`, verifies, logs, and commits.
+- Narrowed `$task-implement` to planned standard tasks so it no longer tries to infer or perform earlier workflow stages.
+- All six skills pass Codex's validator; `pnpm typecheck` and all 44 tests pass.
+- Installed the new personal `$task-simple` symlink; the five existing skill links were already installed and unchanged.

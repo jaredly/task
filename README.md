@@ -35,7 +35,7 @@ task init
 
 The command looks for `.tasks` in the current directory and its ancestors. If none exists, it asks for default-no `(y/N)` confirmation before creating `.tasks` in the current directory. Once initialized, the CLI can be run from any descendant directory and uses the nearest `.tasks` directory.
 
-Install the five bundled skills for all repositories with:
+Install the six bundled skills for all repositories with:
 
 ```sh
 task skills install
@@ -105,7 +105,7 @@ The generated prompt begins with `$task-research`. Standard tasks then advance t
 task simple update dependencies
 ```
 
-Simple tasks invoke `$task-implement`, which reviews the brief, asks only blocking questions, implements and verifies the change, records progress in `implementation-log.md`, and makes a scoped commit.
+Simple tasks invoke `$task-simple`, which skips research and planning, reviews the brief, asks only blocking questions, implements and verifies the change, records progress in `implementation-log.md`, and makes a scoped commit.
 
 ### Create a bug task
 

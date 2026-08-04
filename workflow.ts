@@ -96,7 +96,7 @@ export function promptForStage(
     plan: "task-plan",
     implement: "task-implement",
     commit: "task-commit",
-    "implement-and-commit": "task-implement",
+    "implement-and-commit": "task-simple",
     "bugfix-and-commit": "task-bugfix",
   }[stage];
   return `${target.fullName}: $${skill} ${pathToFileURL(target.taskFile).href}`;

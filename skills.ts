@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 export const taskSkillNames = [
   "task-research",
   "task-plan",
+  "task-simple",
   "task-implement",
   "task-bugfix",
   "task-commit",
