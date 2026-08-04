@@ -33,6 +33,15 @@ test("canonical skills have unique valid metadata and workflow boundaries", () =
   assert.match(readFileSync(join(sourceRoot, "task-simple", "SKILL.md"), "utf8"), /Do not require, create, or backfill `research\.md` or `plan\.md`/u);
   assert.match(readFileSync(join(sourceRoot, "task-simple", "SKILL.md"), "utf8"), /scoped commit/u);
   assert.match(readFileSync(join(sourceRoot, "task-bugfix", "SKILL.md"), "utf8"), /failing reproduction[\s\S]*scoped commit/u);
+
+  assert.match(readFileSync(join(sourceRoot, "task-research-jira", "SKILL.md"), "utf8"), /## Research note[\s\S]*Do not post a plan/u);
+  assert.match(readFileSync(join(sourceRoot, "task-plan-jira", "SKILL.md"), "utf8"), /## Research note[\s\S]*## Implementation plan/u);
+  for (const name of ["task-implement-jira", "task-simple-jira", "task-bugfix-jira"]) {
+    const content = readFileSync(join(sourceRoot, name, "SKILL.md"), "utf8");
+    assert.match(content, /\*\*draft\*\* pull request/u, `${name} opens a draft pull request`);
+    assert.match(content, /## Implementation log/u, `${name} posts an implementation log comment`);
+    assert.match(content, /No separate commit stage follows this skill/u, `${name} owns its commit`);
+  }
 });
 
 test("skill installation is idempotent and uninstall removes only owned links", () => {

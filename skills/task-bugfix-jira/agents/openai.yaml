@@ -1,0 +1,4 @@
+interface:
+  display_name: "Task Bugfix (Jira)"
+  short_description: "Reproduce and fix a Jira bug, then open a draft PR"
+  default_prompt: "Use $task-bugfix-jira to reproduce and fix this bug, commit, open a draft PR, and comment the implementation log."

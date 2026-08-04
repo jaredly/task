@@ -16,6 +16,11 @@ export const taskSkillNames = [
   "task-implement",
   "task-bugfix",
   "task-commit",
+  "task-research-jira",
+  "task-plan-jira",
+  "task-simple-jira",
+  "task-implement-jira",
+  "task-bugfix-jira",
 ] as const;
 
 export type SkillAction = "install" | "status" | "uninstall";

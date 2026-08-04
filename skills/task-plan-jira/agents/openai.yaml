@@ -1,0 +1,4 @@
+interface:
+  display_name: "Task Plan (Jira)"
+  short_description: "Turn Jira research into a plan comment"
+  default_prompt: "Use $task-plan-jira to post a phased implementation plan as a comment on this ticket."

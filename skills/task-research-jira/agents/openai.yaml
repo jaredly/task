@@ -1,0 +1,4 @@
+interface:
+  display_name: "Task Research (Jira)"
+  short_description: "Research a Jira ticket and comment the research note"
+  default_prompt: "Use $task-research-jira to investigate this ticket and post the research note as a comment."

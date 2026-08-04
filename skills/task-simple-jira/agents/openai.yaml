@@ -1,0 +1,4 @@
+interface:
+  display_name: "Task Simple (Jira)"
+  short_description: "Implement a small Jira ticket and open a draft PR"
+  default_prompt: "Use $task-simple-jira to implement this small ticket, commit, open a draft PR, and comment the implementation log."

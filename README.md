@@ -35,7 +35,7 @@ task init
 
 The command looks for `.tasks` in the current directory and its ancestors. If none exists, it asks for default-no `(y/N)` confirmation before creating `.tasks` in the current directory. Once initialized, the CLI can be run from any descendant directory and uses the nearest `.tasks` directory.
 
-Install the six bundled skills for all repositories with:
+Install the eleven bundled skills for all repositories with:
 
 ```sh
 task skills install
@@ -114,6 +114,20 @@ task bug login redirect
 ```
 
 Bug tasks create `bug.md` and invoke `$task-bugfix`. The skill requires a failing reproduction before the fix, verification, an implementation log, and a scoped commit.
+
+### Jira-backed tasks
+
+When the task already lives in Jira, use the `-jira` skills instead of creating a local task. They are invoked directly with an issue key or Jira URL rather than through `task add`, and the ticket replaces the `.tasks` directory: no `task.md`, `research.md`, `plan.md`, or `implementation-log.md` is written.
+
+| Skill | Reads | Writes |
+| --- | --- | --- |
+| `$task-research-jira` | ticket description and comments | a `## Research note` comment ending in open questions |
+| `$task-plan-jira` | the ticket plus the research comment and its answers | an `## Implementation plan` comment |
+| `$task-implement-jira` | the ticket plus the research and plan comments | commit on a ticket branch, draft PR, `## Implementation log` comment |
+| `$task-simple-jira` | the ticket description | commit on a ticket branch, draft PR, `## Implementation log` comment |
+| `$task-bugfix-jira` | the ticket as a bug report | regression test, commit on a ticket branch, draft PR, `## Implementation log` comment |
+
+Each stage posts new comments and never edits the description or an existing comment. There is no `$task-commit-jira`: the three implementing skills end with a scoped commit on a ticket-keyed branch and a draft pull request whose URL is included in the implementation-log comment. Jira access comes from whatever Jira tooling the agent has configured, such as an Atlassian MCP server.
 
 `init`, `simple`, and `bug` are reserved when used as the first argument. The rest of the name is joined with dashes. Characters outside ASCII letters, numbers, `_`, and `-` are converted to dashes; consecutive dashes are collapsed.
 
