@@ -5,6 +5,8 @@ description: Turn a repository task brief and its research.md, including inline 
 
 # Task Plan
 
+If `update_thread_status` is available in the current harness, use it to publish this skill's state: call `update_thread_status({ operation: "set", label: "📝🏃" })` when planning begins, `update_thread_status({ operation: "set", label: "📝🚫", detail })` immediately before stopping for required user input or outside assistance, and `update_thread_status({ operation: "set", label: "📝✅" })` only after `plan.md` is complete.
+
 1. Resolve the task from the supplied brief or directory. If omitted, find a unique task ID or task-file link in the earliest relevant user message. Ask when ambiguous; never guess from directory recency.
 2. Re-read the brief and `research.md` from disk. Check `## Open questions` for inline answers the user may have added since the research was written; do not assume questions remain unanswered without verifying the current file contents. Then read repository instructions and the current code paths the plan will change.
 3. If questions are still unanswered or contradictory after rereading `research.md`, ask whether they were intentionally left open before planning. Do not block based solely on the research stage or an earlier snapshot of the file, and do not silently invent decisions.

@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
   renameSync,
   statSync,
   unlinkSync,
@@ -12,7 +14,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import test from "node:test";
 
 import type { AgentTurnRequest, TaskAgent } from "../agent.ts";
@@ -283,6 +285,30 @@ test("task creation rejects unknown options after a title", async () => {
   assert.equal(await runCli(["-n", "add", "--unknown"], reserve.services), 2);
   assert.deepEqual(reserve.errors, ["Unknown option: --unknown. Run task -h for usage."]);
   assert.deepEqual(readdirSync(join(root, ".tasks")), []);
+});
+
+test("skills install --local installs into the current task root", async () => {
+  const root = fixture();
+  const nested = join(root, "src", "feature");
+  mkdirSync(nested, { recursive: true });
+  const current = harness(nested);
+
+  assert.equal(await runCli(["skills", "install", "--local"], current.services), 0);
+  const destination = join(root, ".agents", "skills", "task-simple");
+  assert.ok(lstatSync(destination).isSymbolicLink());
+  assert.equal(
+    resolve(join(destination, ".."), readlinkSync(destination)),
+    resolve("skills", "task-simple"),
+  );
+  assert.match(current.output.at(-1) ?? "", /Installed \d+ skills\./u);
+});
+
+test("skills rejects unknown local options", async () => {
+  const root = fixture();
+  const current = harness(root);
+
+  assert.equal(await runCli(["skills", "install", "--elsewhere"], current.services), 2);
+  assert.deepEqual(current.errors, ["Unknown task skills option: --elsewhere"]);
 });
 
 test("explicit prompt targets are permissive and preserve Markdown names", async () => {

@@ -5,6 +5,8 @@ description: Research a repository task brief and write an adjacent research.md 
 
 # Task Research
 
+If `update_thread_status` is available in the current harness, use it to publish this skill's state: call `update_thread_status({ operation: "set", label: "📚🏃" })` when research begins, `update_thread_status({ operation: "set", label: "📚🚫", detail })` immediately before stopping for required user input or outside assistance, and `update_thread_status({ operation: "set", label: "📚✅" })` only after `research.md` is complete.
+
 1. Resolve the task from the supplied Markdown brief or task directory. If no path is supplied, find a unique task ID or task-file link in the earliest relevant user message. Ask for a path if that is ambiguous; never select the newest task implicitly.
 2. Read the brief, repository instructions, relevant implementation, tests, documentation, and recent history. Verify current or niche external facts against primary sources when needed.
 3. Write `research.md` beside the brief. Update an existing file only when the request clearly continues that research; otherwise ask before replacing substantive content.

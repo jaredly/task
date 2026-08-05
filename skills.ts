@@ -28,6 +28,7 @@ export type SkillAction = "install" | "status" | "uninstall";
 
 export type SkillServices = {
   home?: string;
+  destinationRoot?: string;
   sourceRoot?: string;
   out: (message: string) => void;
   error: (message: string) => void;
@@ -59,7 +60,8 @@ export function manageSkills(
   services: SkillServices,
 ): number {
   const sourceRoot = services.sourceRoot ?? canonicalSkillsRoot();
-  const destinationRoot = join(services.home ?? homedir(), ".agents", "skills");
+  const destinationRoot =
+    services.destinationRoot ?? join(services.home ?? homedir(), ".agents", "skills");
   let conflicts = 0;
   let changes = 0;
 

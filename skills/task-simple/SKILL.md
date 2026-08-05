@@ -5,6 +5,8 @@ description: Implement, verify, log, and commit a compact simple task described 
 
 # Task Simple
 
+If `update_thread_status` is available in the current harness, use it to publish this skill's state: call `update_thread_status({ operation: "set", label: "👷🏃" })` when implementation begins, `update_thread_status({ operation: "set", label: "👷🚫", detail })` immediately before stopping for required user input or outside assistance, and `update_thread_status({ operation: "set", label: "👷✅" })` only after verified implementation, an accurate `implementation-log.md`, and a scoped commit.
+
 1. Resolve the task from the supplied `task.md` or task directory, or infer a unique task ID/link from the earliest relevant user message. Ask for a path when ambiguous.
 2. Read the brief, repository instructions, relevant code and tests, and working-tree status.
 3. Do not require, create, or backfill `research.md` or `plan.md`. A simple task starts directly from its brief. Ask only questions that block a safe implementation; otherwise proceed.

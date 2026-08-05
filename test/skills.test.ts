@@ -15,6 +15,20 @@ import { manageSkills, taskSkillNames } from "../skills.ts";
 
 const sourceRoot = resolve("skills");
 
+const statusSkillLabels = [
+  { name: "task-research", labels: ["📚🏃", "📚🚫", "📚✅"] },
+  { name: "task-research-jira", labels: ["📚🏃", "📚🚫", "📚✅"] },
+  { name: "task-plan", labels: ["📝🏃", "📝🚫", "📝✅"] },
+  { name: "task-plan-jira", labels: ["📝🏃", "📝🚫", "📝✅"] },
+  { name: "task-implement", labels: ["👷🏃", "👷🚫", "👷✅"] },
+  { name: "task-simple", labels: ["👷🏃", "👷🚫", "👷✅"] },
+  { name: "task-bugfix", labels: ["👷🏃", "👷🚫", "👷✅"] },
+  { name: "task-implement-jira", labels: ["👷🏃", "👷🚫", "👷✅"] },
+  { name: "task-simple-jira", labels: ["👷🏃", "👷🚫", "👷✅"] },
+  { name: "task-bugfix-jira", labels: ["👷🏃", "👷🚫", "👷✅"] },
+  { name: "task-commit", labels: ["👍🏃", "👍🚫", "👍✅"] },
+];
+
 test("canonical skills have unique valid metadata and workflow boundaries", () => {
   const names = new Set<string>();
   for (const expectedName of taskSkillNames) {
@@ -46,6 +60,15 @@ test("canonical skills have unique valid metadata and workflow boundaries", () =
     assert.match(content, /\*\*draft\*\* pull request/u, `${name} opens a draft pull request`);
     assert.match(content, /## Implementation log/u, `${name} posts an implementation log comment`);
     assert.match(content, /No separate commit stage follows this skill/u, `${name} owns its commit`);
+  }
+
+  for (const { name, labels } of statusSkillLabels) {
+    const content = readFileSync(join(sourceRoot, name, "SKILL.md"), "utf8");
+    assert.match(content, /If `update_thread_status` is available/u, `${name} makes status updates conditional`);
+    assert.match(content, /operation: "set"/u, `${name} uses the update_thread_status set operation`);
+    for (const label of labels) {
+      assert.match(content, new RegExp(label, "u"), `${name} contains status label ${label}`);
+    }
   }
 });
 

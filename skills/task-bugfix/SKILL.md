@@ -5,6 +5,8 @@ description: Reproduce, investigate, fix, verify, log, and commit a repository b
 
 # Task Bugfix
 
+If `update_thread_status` is available in the current harness, use it to publish this skill's state: call `update_thread_status({ operation: "set", label: "👷🏃" })` when bugfix implementation begins, `update_thread_status({ operation: "set", label: "👷🚫", detail })` immediately before stopping for required user input or outside assistance, and `update_thread_status({ operation: "set", label: "👷✅" })` only after verified reproduction, fix, an accurate `implementation-log.md`, and a scoped commit.
+
 1. Resolve the bug from the supplied `task.md` or task directory, or infer a unique task ID/link from the earliest relevant user message. Ask when ambiguous.
 2. Read repository instructions, the report, related code and tests, working-tree status, and relevant history.
 3. Create the smallest reliable failing reproduction test before changing production behavior. If reproduction is impossible with available information, stop and ask rather than guessing at a fix.

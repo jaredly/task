@@ -44,6 +44,16 @@ task skills status
 
 The installer creates owned symlinks in `~/.agents/skills`; it never replaces an existing path. `task skills uninstall` removes only symlinks pointing to this installation. Restart Codex or its Zed External Agent after changing installed skills. Symlink installation is supported on macOS and Linux; Windows may require Developer Mode or elevated symlink privileges.
 
+To install the bundled skills only for the current project, add `--local`:
+
+```sh
+task skills install --local
+task skills status --local
+task skills uninstall --local
+```
+
+Local installs create owned symlinks in `.agents/skills` at the nearest task root.
+
 ### Editor configuration
 
 Task briefs are opened using `$VISUAL`, then `$EDITOR`, falling back to `vi`. Editor flags and quoted paths are supported without invoking a shell:
@@ -76,7 +86,8 @@ Usage:
   task init               Initialize .tasks in the current directory
   task -p [--no-skill [--simple|--bug]] [target]
                          Print a task prompt, selecting a task if omitted
-  task skills <action>    Install, inspect, or uninstall personal skills
+  task skills <action> [--local]
+                         Install, inspect, or uninstall personal skills
   task agent <action>     Start, advance, or inspect a Codex ACP workflow
   task -a                 Select completed tasks to archive
   task -h, --help         Show this help

@@ -60,7 +60,8 @@ const help = `Usage:
   task init               Initialize .tasks in the current directory
   task -p [--no-skill [--simple|--bug]] [target]
                          Print a task prompt, selecting a task if omitted
-  task skills <action>    Install, inspect, or uninstall personal skills
+  task skills <action> [--local]
+                         Install, inspect, or uninstall personal skills
   task agent <action>     Start, advance, or inspect a Codex ACP workflow
   task -a                 Select completed tasks to archive
   task -h, --help         Show this help
@@ -410,6 +411,34 @@ function parseAgentArguments(args: string[]): {
   return { action, target, stage, newSession };
 }
 
+function parseSkillsArguments(args: string[]): {
+  action: SkillAction;
+  local: boolean;
+} {
+  let action: SkillAction | undefined;
+  let local = false;
+
+  for (const value of args) {
+    if (value === "--local") {
+      local = true;
+    } else if (value === "install" || value === "status" || value === "uninstall") {
+      if (action) {
+        throw new UsageError("task skills accepts only one action");
+      }
+      action = value;
+    } else if (value.startsWith("-")) {
+      throw new UsageError(`Unknown task skills option: ${value}`);
+    } else {
+      throw new UsageError("Usage: task skills <install|status|uninstall> [--local]");
+    }
+  }
+
+  if (!action) {
+    throw new UsageError("Usage: task skills <install|status|uninstall> [--local]");
+  }
+  return { action, local };
+}
+
 async function discoverSession(
   agent: TaskAgent,
   target: TaskTarget,
@@ -737,14 +766,11 @@ export async function runCli(
       return await archiveTasks(services, base);
     }
     if (args[0] === "skills") {
-      if (
-        args.length !== 2 ||
-        !["install", "status", "uninstall"].includes(args[1])
-      ) {
-        services.error("Usage: task skills <install|status|uninstall>");
-        return 2;
-      }
-      return manageSkills(args[1] as SkillAction, {
+      const parsed = parseSkillsArguments(args.slice(1));
+      return manageSkills(parsed.action, {
+        destinationRoot: parsed.local
+          ? join(base ?? services.cwd, ".agents", "skills")
+          : undefined,
         home: services.homeDir,
         sourceRoot: services.skillsRoot,
         out: services.out,
