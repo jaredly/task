@@ -271,6 +271,20 @@ test("-n requires a task name and an existing .tasks directory", async () => {
   assert.deepEqual(missingTasksDirectory.errors, ["Unable to find a .tasks directory"]);
 });
 
+test("task creation rejects unknown options after a title", async () => {
+  const root = fixture();
+
+  const create = harness(root);
+  assert.equal(await runCli(["add", "--unknown"], create.services), 2);
+  assert.deepEqual(create.errors, ["Unknown option: --unknown. Run task -h for usage."]);
+  assert.deepEqual(readdirSync(join(root, ".tasks")), []);
+
+  const reserve = harness(root);
+  assert.equal(await runCli(["-n", "add", "--unknown"], reserve.services), 2);
+  assert.deepEqual(reserve.errors, ["Unknown option: --unknown. Run task -h for usage."]);
+  assert.deepEqual(readdirSync(join(root, ".tasks")), []);
+});
+
 test("explicit prompt targets are permissive and preserve Markdown names", async () => {
   const root = fixture();
 
@@ -498,6 +512,14 @@ test("agent status is read-only and invalid usage returns exit 2", async () => {
   assert.match(current.output[0], /Inferred next stage: research/u);
   assert.equal(await runCli(["agent", "next", "06abc-status", "--new-session"], current.services), 2);
   assert.match(current.errors[0], /only valid/u);
+});
+
+test("agent commands reject unknown options", async () => {
+  const root = fixture();
+  const current = harness(root);
+
+  assert.equal(await runCli(["agent", "start", "--unknown"], current.services), 2);
+  assert.deepEqual(current.errors, ["Unknown task agent option: --unknown"]);
 });
 
 function archiveTask(root: string, name: string, modifiedAt: Date): string {

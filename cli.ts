@@ -191,11 +191,19 @@ function resolvePromptTarget(
   };
 }
 
+function rejectUnknownOptions(args: string[]): void {
+  const option = args.find((argument) => argument.startsWith("-"));
+  if (option) {
+    throw new UsageError(`Unknown option: ${option}. Run task -h for usage.`);
+  }
+}
+
 async function createTask(
   args: string[],
   services: CliServices,
   base: string | undefined,
 ): Promise<number> {
+  rejectUnknownOptions(args);
   if (!base) {
     services.error("Unable to find a .tasks directory");
     return 1;
@@ -237,6 +245,7 @@ function createTaskDirectory(
   services: CliServices,
   base: string | undefined,
 ): number {
+  rejectUnknownOptions(args);
   if (!base) {
     services.error("Unable to find a .tasks directory");
     return 1;
@@ -384,6 +393,8 @@ function parseAgentArguments(args: string[]): {
       index += 1;
     } else if (value === "--new-session") {
       newSession = true;
+    } else if (value.startsWith("-")) {
+      throw new UsageError(`Unknown task agent option: ${value}`);
     } else if (!target) {
       target = value;
     } else {
