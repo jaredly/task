@@ -238,6 +238,39 @@ test("creation normalizes punctuation and encodes paths in prompt URLs", async (
   assert.doesNotMatch(current.output[0], /shell;\$name/);
 });
 
+test("-n creates only a standard task directory and prints its brief path", async () => {
+  const root = fixture();
+  let editCalls = 0;
+  const current = harness(root, {
+    editFile: async () => {
+      editCalls += 1;
+    },
+  });
+
+  assert.equal(await runCli(["-n", "some", "name", "text"], current.services), 0);
+  const [brief] = current.output;
+  const directory = join(root, ".tasks", brief.split("/").at(-2)!);
+  assert.equal(statSync(directory).isDirectory(), true);
+  assert.equal(existsSync(brief), false);
+  assert.equal(editCalls, 0);
+  assert.deepEqual(current.output, [brief]);
+  assert.match(brief, new RegExp(`^${root}/\\.tasks/\\w+-some-name-text/task\\.md$`));
+  assert.deepEqual(current.errors, []);
+});
+
+test("-n requires a task name and an existing .tasks directory", async () => {
+  const root = fixture();
+  const missingName = harness(root);
+  assert.equal(await runCli(["-n"], missingName.services), 2);
+  assert.deepEqual(missingName.errors, ["A task name is required. Run task -h for usage."]);
+  assert.deepEqual(readdirSync(join(root, ".tasks")), []);
+
+  const outside = mkdtempSync(join(tmpdir(), "tasks-outside-"));
+  const missingTasksDirectory = harness(outside);
+  assert.equal(await runCli(["-n", "some", "name"], missingTasksDirectory.services), 1);
+  assert.deepEqual(missingTasksDirectory.errors, ["Unable to find a .tasks directory"]);
+});
+
 test("explicit prompt targets are permissive and preserve Markdown names", async () => {
   const root = fixture();
 

@@ -60,6 +60,7 @@ const help = `Usage:
   task <name...>          Create a standard task
   task simple <name...>   Create a simple task
   task bug <name...>      Create a bug task
+  task -n <name...>       Create a task directory and print its task.md path
   task init               Initialize .tasks in the current directory
   task -p [--no-skill] [target]
                          Print a task prompt, selecting a task if omitted
@@ -239,6 +240,34 @@ async function createTask(
   }
 
   services.out(promptFor(kind, fullName, brief));
+  return 0;
+}
+
+function createTaskDirectory(
+  args: string[],
+  services: CliServices,
+  base: string | undefined,
+): number {
+  if (!base) {
+    services.error("Unable to find a .tasks directory");
+    return 1;
+  }
+
+  const taskName = normalizeTaskName(args);
+  if (!taskName) {
+    services.error("A task name is required. Run task -h for usage.");
+    return 2;
+  }
+
+  const fullName = `${taskPrefix(services.now)}-${taskName}`;
+  const directory = join(base, ".tasks", fullName);
+  if (existsSync(directory)) {
+    services.error(`Task already exists: ${directory}`);
+    return 1;
+  }
+
+  mkdirSync(directory);
+  services.out(join(directory, defaultBrief("task")));
   return 0;
 }
 
@@ -682,6 +711,9 @@ export async function runCli(
         services,
         base,
       );
+    }
+    if (args[0] === "-n") {
+      return createTaskDirectory(args.slice(1), services, base);
     }
     if (args[0] === "-a") {
       if (args.length > 1) {

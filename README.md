@@ -74,6 +74,7 @@ Usage:
   task <name...>          Create a standard task
   task simple <name...>   Create a simple task
   task bug <name...>      Create a bug task
+  task -n <name...>       Create a task directory and print its task.md path
   task init               Initialize .tasks in the current directory
   task -p [--no-skill] [target]
                          Print a task prompt, selecting a task if omitted
@@ -98,6 +99,14 @@ This creates a directory similar to:
 ```
 
 The generated prompt begins with `$task-research`. Standard tasks then advance through `$task-plan`, `$task-implement`, and `$task-commit`; each stage stops at its stated boundary.
+
+### Reserve a task directory
+
+```sh
+task -n add search filters
+```
+
+This creates the timestamped task directory and prints the absolute path where its `task.md` brief will live. It does not create the brief, open an editor, or print an agent prompt. This is intended for agents and other CLI tools that need to reserve a task ID before writing the brief themselves.
 
 ### Create a simple task
 

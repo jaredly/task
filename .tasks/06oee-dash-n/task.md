@@ -1,0 +1,1 @@
+Can you make a `task -n some name text` that just 'creates the directory' and prints out the full path to the task.md file, but doesn't create the file or do anything else? For use by agents or cli tools. It should error if no .tasks directory is found, as usual.
