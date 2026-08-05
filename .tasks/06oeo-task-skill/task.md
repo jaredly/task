@@ -1,0 +1,1 @@
+Let's make a skill for 'making a task'. It's to be used by agents when the user says "can you make a task for that?". The agent should run `task -n some descriptive name`, which will give it the path to a markdown file where it should write out the task description. It should not do the research, plan, or implement steps until the user asks for it.

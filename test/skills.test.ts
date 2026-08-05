@@ -27,6 +27,11 @@ test("canonical skills have unique valid metadata and workflow boundaries", () =
     names.add(metadata[1]);
   }
 
+  const create = readFileSync(join(sourceRoot, "task-create", "SKILL.md"), "utf8");
+  assert.match(create, /task -n <descriptive name>/u);
+  assert.match(create, /Do not create `research\.md`, `plan\.md`, or `implementation-log\.md`/u);
+  assert.match(create, /do not investigate, edit product code, run implementation tests, or commit/u);
+
   assert.match(readFileSync(join(sourceRoot, "task-research", "SKILL.md"), "utf8"), /research\.md[\s\S]*Do not write `plan\.md`/u);
   assert.match(readFileSync(join(sourceRoot, "task-plan", "SKILL.md"), "utf8"), /Open questions[\s\S]*plan\.md/u);
   assert.match(readFileSync(join(sourceRoot, "task-implement", "SKILL.md"), "utf8"), /plan\.md[\s\S]*Do not commit/u);

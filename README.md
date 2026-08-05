@@ -35,7 +35,7 @@ task init
 
 The command looks for `.tasks` in the current directory and its ancestors. If none exists, it asks for default-no `(y/N)` confirmation before creating `.tasks` in the current directory. Once initialized, the CLI can be run from any descendant directory and uses the nearest `.tasks` directory.
 
-Install the eleven bundled skills for all repositories with:
+Install the twelve bundled skills for all repositories with:
 
 ```sh
 task skills install
@@ -105,6 +105,10 @@ task -n add search filters
 ```
 
 This creates the timestamped task directory and prints the absolute path where its `task.md` brief will live. It does not create the brief, open an editor, or print an agent prompt. This is intended for agents and other CLI tools that need to reserve a task ID before writing the brief themselves.
+
+### Create a task from conversation context
+
+Invoke `$task-create` when asking an agent to make a task for work already discussed. The skill reserves a directory with `task -n`, writes the agreed task description to its `task.md`, reports the path, and stops. It does not start research, planning, implementation, or a commit.
 
 For a compact implementation or a bug fix, invoke `$task-simple` or `$task-bugfix` directly with the task's `task.md` brief. The simple skill skips research and planning; the bugfix skill requires a failing reproduction before the fix.
 

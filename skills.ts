@@ -10,6 +10,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const taskSkillNames = [
+  "task-create",
   "task-research",
   "task-plan",
   "task-simple",
