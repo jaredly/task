@@ -1,0 +1,1 @@
+Let's remove the magic words 'simple' and 'bug', and have everything use `task.md` as the main brief name. Now that I'm driving things through skills primarily, it's less important. We can have cli options `--simple` and `--bug` for the `--no-skill` path, to get the alternate text printed to stdout.

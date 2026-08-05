@@ -7,22 +7,13 @@ import {
 import { basename, dirname, isAbsolute, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export type TaskKind = "task" | "simple" | "bug";
-export type WorkflowStage =
-  | "research"
-  | "plan"
-  | "implement"
-  | "commit"
-  | "implement-and-commit"
-  | "bugfix-and-commit";
+export type WorkflowStage = "research" | "plan" | "implement" | "commit";
 
 export const workflowStages: readonly WorkflowStage[] = [
   "research",
   "plan",
   "implement",
   "commit",
-  "implement-and-commit",
-  "bugfix-and-commit",
 ];
 
 export type AgentState = {
@@ -38,34 +29,20 @@ export type TaskTarget = {
   fullName: string;
   taskFile: string;
   directory: string;
-  kind: TaskKind;
 };
 
-export function inferTaskKind(fullName: string): TaskKind {
-  const parts = fullName.split("-");
-  const possibleKind =
-    parts[0] === "bug" || parts[0] === "simple" ? parts[0] : parts[1];
-  return possibleKind === "bug" || possibleKind === "simple"
-    ? possibleKind
-    : "task";
+export function defaultBrief(): string {
+  return "task.md";
 }
 
-export function defaultBrief(kind: TaskKind): string {
-  return kind === "bug" ? "bug.md" : "task.md";
-}
-
-export function initialStage(kind: TaskKind): WorkflowStage {
-  if (kind === "simple") return "implement-and-commit";
-  if (kind === "bug") return "bugfix-and-commit";
+export function initialStage(): WorkflowStage {
   return "research";
 }
 
 export function nextStage(
-  kind: TaskKind,
   lastCompletedStage?: WorkflowStage,
 ): WorkflowStage | undefined {
-  if (!lastCompletedStage) return initialStage(kind);
-  if (kind === "simple" || kind === "bug") return undefined;
+  if (!lastCompletedStage) return initialStage();
   if (lastCompletedStage === "research") return "plan";
   if (lastCompletedStage === "plan") return "implement";
   if (lastCompletedStage === "implement") return "commit";
@@ -73,7 +50,6 @@ export function nextStage(
 }
 
 export function inferStageFromArtifacts(target: TaskTarget): WorkflowStage | undefined {
-  if (target.kind !== "task") return initialStage(target.kind);
   if (!existsSync(join(target.directory, "research.md"))) return "research";
   if (!existsSync(join(target.directory, "plan.md"))) return "plan";
   return "implement";
@@ -96,8 +72,6 @@ export function promptForStage(
     plan: "task-plan",
     implement: "task-implement",
     commit: "task-commit",
-    "implement-and-commit": "task-simple",
-    "bugfix-and-commit": "task-bugfix",
   }[stage];
   return `${target.fullName}: $${skill} ${pathToFileURL(target.taskFile).href}`;
 }
@@ -145,6 +119,5 @@ export function targetFromTaskFile(taskFile: string): TaskTarget {
     fullName,
     taskFile,
     directory,
-    kind: inferTaskKind(fullName),
   };
 }

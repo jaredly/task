@@ -20,20 +20,17 @@ function target(name = "06abc-work") {
   const root = mkdtempSync(join(tmpdir(), "tasks-workflow-"));
   const directory = join(root, ".tasks", name);
   mkdirSync(directory, { recursive: true });
-  const brief = join(directory, name.includes("-bug-") ? "bug.md" : "task.md");
+  const brief = join(directory, "task.md");
   writeFileSync(brief, "brief");
   return targetFromTaskFile(brief);
 }
 
-test("stage orders cover standard, simple, and bug tasks", () => {
-  assert.equal(initialStage("task"), "research");
-  assert.equal(nextStage("task", "research"), "plan");
-  assert.equal(nextStage("task", "plan"), "implement");
-  assert.equal(nextStage("task", "implement"), "commit");
-  assert.equal(nextStage("task", "commit"), undefined);
-  assert.equal(initialStage("simple"), "implement-and-commit");
-  assert.equal(nextStage("simple", "implement-and-commit"), undefined);
-  assert.equal(initialStage("bug"), "bugfix-and-commit");
+test("stage order is the same for every task", () => {
+  assert.equal(initialStage(), "research");
+  assert.equal(nextStage("research"), "plan");
+  assert.equal(nextStage("plan"), "implement");
+  assert.equal(nextStage("implement"), "commit");
+  assert.equal(nextStage("commit"), undefined);
 });
 
 test("artifact recovery proposes stages without claiming implementation completion", () => {
@@ -48,10 +45,10 @@ test("artifact recovery proposes stages without claiming implementation completi
 });
 
 test("open questions and encoded skill prompts are detected", () => {
-  const current = target("06abc-simple-work");
+  const current = target("06abc-work");
   writeFileSync(join(current.directory, "research.md"), "# Research\n\n## Open questions\n\nNone.\n");
   assert.equal(hasOpenQuestions(current), true);
-  assert.match(promptForStage(current, "implement-and-commit"), /^06abc-simple-work: \$task-simple file:/u);
+  assert.match(promptForStage(current, "implement"), /^06abc-work: \$task-implement file:/u);
 });
 
 test("agent state round trips and rejects invalid stages", () => {

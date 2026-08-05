@@ -29,7 +29,7 @@ test("canonical skills have unique valid metadata and workflow boundaries", () =
 
   assert.match(readFileSync(join(sourceRoot, "task-research", "SKILL.md"), "utf8"), /research\.md[\s\S]*Do not write `plan\.md`/u);
   assert.match(readFileSync(join(sourceRoot, "task-plan", "SKILL.md"), "utf8"), /Open questions[\s\S]*plan\.md/u);
-  assert.match(readFileSync(join(sourceRoot, "task-implement", "SKILL.md"), "utf8"), /standard task[\s\S]*Do not commit/u);
+  assert.match(readFileSync(join(sourceRoot, "task-implement", "SKILL.md"), "utf8"), /plan\.md[\s\S]*Do not commit/u);
   assert.match(readFileSync(join(sourceRoot, "task-simple", "SKILL.md"), "utf8"), /Do not require, create, or backfill `research\.md` or `plan\.md`/u);
   assert.match(readFileSync(join(sourceRoot, "task-simple", "SKILL.md"), "utf8"), /scoped commit/u);
   assert.match(readFileSync(join(sourceRoot, "task-bugfix", "SKILL.md"), "utf8"), /failing reproduction[\s\S]*scoped commit/u);

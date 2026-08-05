@@ -57,7 +57,7 @@ function harness(
 function activeBrief(root: string, name: string): string {
   const directory = join(root, ".tasks", name);
   mkdirSync(directory, { recursive: true });
-  const brief = join(directory, name.includes("-bug-") ? "bug.md" : "task.md");
+  const brief = join(directory, "task.md");
   writeFileSync(brief, "brief");
   return brief;
 }
@@ -179,15 +179,15 @@ test("help and invalid input do not create tasks", async () => {
   assert.equal(statSync(join(root, ".tasks")).mtimeMs, initialMtime);
 });
 
-test("creates each task kind and includes nested context", async () => {
+test("creates tasks with a task.md brief and includes nested context", async () => {
   const root = fixture();
   const nested = join(root, "src", "feature");
   mkdirSync(nested, { recursive: true });
 
-  for (const [args, marker, briefName] of [
-    [["standard", "work"], "-standard-work", "task.md"],
-    [["simple", "small", "work"], "-simple-small-work", "task.md"],
-    [["bug", "broken", "flow"], "-bug-broken-flow", "bug.md"],
+  for (const [args, marker] of [
+    [["standard", "work"], "-standard-work"],
+    [["simple", "small", "work"], "-simple-small-work"],
+    [["bug", "broken", "flow"], "-bug-broken-flow"],
   ] as const) {
     let edited = "";
     const current = harness(nested, {
@@ -196,7 +196,7 @@ test("creates each task kind and includes nested context", async () => {
       },
     });
     assert.equal(await runCli([...args], current.services), 0);
-    assert.match(edited, new RegExp(`${marker.replaceAll("-", "\\-")}/${briefName}$`));
+    assert.match(edited, new RegExp(`${marker.replaceAll("-", "\\-")}/task\\.md$`));
     assert.equal(readFileSync(edited, "utf8"), "src/feature: ");
     assert.match(current.output[0], new RegExp(`^\\w+${marker}:`));
   }
@@ -277,8 +277,8 @@ test("explicit prompt targets are permissive and preserve Markdown names", async
   const bare = harness(root);
   assert.equal(await runCli(["-p", "06abc-bug-missing"], bare.services), 0);
   assert.match(bare.output[0], /^06abc-bug-missing:/);
-  assert.match(bare.output[0], /\$task-bugfix/);
-  assert.match(bare.output[0], /\.tasks\/06abc-bug-missing\/bug\.md/);
+  assert.match(bare.output[0], /\$task-research/);
+  assert.match(bare.output[0], /\.tasks\/06abc-bug-missing\/task\.md/);
 
   const markdown = harness(root);
   assert.equal(await runCli(["-p", "brief.md"], markdown.services), 0);
@@ -302,11 +302,11 @@ test("explicit prompt accepts archived and relative directory paths", async () =
     await runCli(["-p", ".tasks/000-archive/06abc-simple-old"], current.services),
     0,
   );
-  assert.match(current.output[0], /\$task-simple/);
+  assert.match(current.output[0], /\$task-research/);
   assert.match(current.output[0], /000-archive\/06abc-simple-old\/task\.md/);
 });
 
-test("--no-skill restores standard, simple, and bug prompt transcripts", async () => {
+test("--no-skill prints alternate transcripts only when explicitly selected", async () => {
   const root = mkdtempSync(join(tmpdir(), "tasks no skill-"));
   mkdirSync(join(root, ".tasks"));
 
@@ -323,7 +323,7 @@ test("--no-skill restores standard, simple, and bug prompt transcripts", async (
 
   const simple = harness(root);
   assert.equal(
-    await runCli(["-p", "06abc-simple-work", "--no-skill"], simple.services),
+    await runCli(["-p", "06abc-simple-work", "--no-skill", "--simple"], simple.services),
     0,
   );
   assert.match(simple.output[0], /let me know if you have any questions/u);
@@ -331,14 +331,14 @@ test("--no-skill restores standard, simple, and bug prompt transcripts", async (
 
   const bug = harness(root);
   assert.equal(
-    await runCli(["-p", "--no-skill", "06abc-bug-work"], bug.services),
+    await runCli(["-p", "--bug", "--no-skill", "06abc-bug-work"], bug.services),
     0,
   );
   assert.match(bug.output[0], /create a failing repro test/u);
   assert.match(bug.output[0], /otherwise you can proceed with a fix/u);
 });
 
-test("--no-skill supports task selection and rejects unknown print options", async () => {
+test("--no-skill supports task selection and validates alternate prompt options", async () => {
   const root = fixture();
   mkdirSync(join(root, ".tasks", "06abc-active"));
   const selected = harness(root);
@@ -348,6 +348,14 @@ test("--no-skill supports task selection and rejects unknown print options", asy
   const invalid = harness(root);
   assert.equal(await runCli(["-p", "--wat"], invalid.services), 2);
   assert.match(invalid.errors[0], /Unknown task -p option/u);
+
+  const skillOnly = harness(root);
+  assert.equal(await runCli(["-p", "--simple", "06abc-active"], skillOnly.services), 2);
+  assert.match(skillOnly.errors[0], /require --no-skill/u);
+
+  const conflicting = harness(root);
+  assert.equal(await runCli(["-p", "--no-skill", "--simple", "--bug"], conflicting.services), 2);
+  assert.match(conflicting.errors[0], /only one/u);
 });
 
 test("prompt selection lists active tasks newest first", async () => {

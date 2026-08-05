@@ -6,7 +6,7 @@ description: Implement, verify, log, and commit a compact simple task described 
 # Task Simple
 
 1. Resolve the task from the supplied `task.md` or task directory, or infer a unique task ID/link from the earliest relevant user message. Ask for a path when ambiguous.
-2. Confirm this is a simple task from its `-simple-` directory name. Read the brief, repository instructions, relevant code and tests, and working-tree status.
+2. Read the brief, repository instructions, relevant code and tests, and working-tree status.
 3. Do not require, create, or backfill `research.md` or `plan.md`. A simple task starts directly from its brief. Ask only questions that block a safe implementation; otherwise proceed.
 4. Implement the narrowest coherent change using repository patterns. Preserve unrelated working-tree changes and avoid opportunistic refactors.
 5. Create or update `implementation-log.md` beside the brief. Record the change, verification, issues, and workarounds concisely.

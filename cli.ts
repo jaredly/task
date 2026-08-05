@@ -21,7 +21,6 @@ import {
   defaultBrief,
   hasOpenQuestions,
   inferStageFromArtifacts,
-  inferTaskKind,
   initialStage,
   nextStage,
   promptForStage,
@@ -29,7 +28,6 @@ import {
   targetFromTaskFile,
   writeAgentState,
   workflowStages,
-  type TaskKind,
   type TaskTarget,
   type WorkflowStage,
 } from "./workflow.ts";
@@ -57,12 +55,10 @@ export type CliServices = {
 };
 
 const help = `Usage:
-  task <name...>          Create a standard task
-  task simple <name...>   Create a simple task
-  task bug <name...>      Create a bug task
+  task <name...>          Create a task
   task -n <name...>       Create a task directory and print its task.md path
   task init               Initialize .tasks in the current directory
-  task -p [--no-skill] [target]
+  task -p [--no-skill [--simple|--bug]] [target]
                          Print a task prompt, selecting a task if omitted
   task skills <action>    Install, inspect, or uninstall personal skills
   task agent <action>     Start, advance, or inspect a Codex ACP workflow
@@ -103,30 +99,29 @@ function taskPrefix(now: Date): string {
   return minutes.toString(36).padStart(maxMinutes.toString(36).length, "0");
 }
 
-function promptFor(kind: TaskKind, fullName: string, taskFile: string): string {
+function promptFor(fullName: string, taskFile: string): string {
   return promptForStage(
     {
       ...targetFromTaskFile(taskFile),
       fullName,
-      kind,
     },
-    initialStage(kind),
+    initialStage(),
   );
 }
 
 function skilllessPromptFor(
-  kind: TaskKind,
+  variant: "task" | "simple" | "bug",
   fullName: string,
   taskFile: string,
 ): string {
   const taskName = basename(taskFile);
   const link = `[@${taskName}](${pathToFileURL(taskFile).href})`;
 
-  if (kind === "bug") {
+  if (variant === "bug") {
     return `${fullName}: can you look at ${link} and create a failing repro test? If you get stuck, stop and ask for more information, but otherwise you can proceed with a fix. Keep a concise log of what you've done in implementation-log.md.`;
   }
 
-  if (kind === "simple") {
+  if (variant === "simple") {
     return [
       `${fullName}: can you look at ${link} and let me know if you have any questions?`,
       "",
@@ -188,14 +183,11 @@ function resolvePromptTarget(
       : resolve(cwd, target);
   const taskDirectory = isMarkdown ? dirname(targetPath) : targetPath;
   const fullName = basename(taskDirectory);
-  const kind = inferTaskKind(fullName);
-
-  const taskFile = isMarkdown ? targetPath : join(taskDirectory, defaultBrief(kind));
+  const taskFile = isMarkdown ? targetPath : join(taskDirectory, defaultBrief());
   return {
     fullName,
     taskFile,
     directory: dirname(taskFile),
-    kind,
   };
 }
 
@@ -209,23 +201,20 @@ async function createTask(
     return 1;
   }
 
-  const kind: TaskKind =
-    args[0] === "bug" ? "bug" : args[0] === "simple" ? "simple" : "task";
-  const nameParts = kind === "task" ? args : args.slice(1);
-  const taskName = normalizeTaskName(nameParts);
+  const taskName = normalizeTaskName(args);
   if (!taskName) {
     services.error("A task name is required. Run task -h for usage.");
     return 2;
   }
 
-  const fullName = `${taskPrefix(services.now)}-${kind === "task" ? "" : `${kind}-`}${taskName}`;
+  const fullName = `${taskPrefix(services.now)}-${taskName}`;
   const directory = join(base, ".tasks", fullName);
   if (existsSync(directory)) {
     services.error(`Task already exists: ${directory}`);
     return 1;
   }
 
-  const brief = join(directory, defaultBrief(kind));
+  const brief = join(directory, defaultBrief());
   const subdirectory = relative(base, services.cwd);
   mkdirSync(directory);
   writeFileSync(brief, subdirectory ? `${subdirectory}: ` : "");
@@ -239,7 +228,7 @@ async function createTask(
     return 1;
   }
 
-  services.out(promptFor(kind, fullName, brief));
+  services.out(promptFor(fullName, brief));
   return 0;
 }
 
@@ -267,7 +256,7 @@ function createTaskDirectory(
   }
 
   mkdirSync(directory);
-  services.out(join(directory, defaultBrief("task")));
+  services.out(join(directory, defaultBrief()));
   return 0;
 }
 
@@ -288,6 +277,7 @@ function activeTaskChoices(base: string): Choice[] {
 async function printTaskPrompt(
   target: string | undefined,
   useSkills: boolean,
+  variant: "task" | "simple" | "bug",
   services: CliServices,
   base: string | undefined,
 ): Promise<number> {
@@ -305,15 +295,15 @@ async function printTaskPrompt(
     selectedTarget = await services.chooseOne("Select a task to continue", choices);
   }
 
-  const { fullName, taskFile, kind } = resolvePromptTarget(
+  const { fullName, taskFile } = resolvePromptTarget(
     selectedTarget,
     services.cwd,
     base,
   );
   services.out(
     useSkills
-      ? promptFor(kind, fullName, taskFile)
-      : skilllessPromptFor(kind, fullName, taskFile),
+      ? promptFor(fullName, taskFile)
+      : skilllessPromptFor(variant, fullName, taskFile),
   );
   return 0;
 }
@@ -321,12 +311,19 @@ async function printTaskPrompt(
 function parsePrintArguments(args: string[]): {
   target?: string;
   useSkills: boolean;
+  variant: "task" | "simple" | "bug";
 } {
   let target: string | undefined;
   let useSkills = true;
+  let variant: "task" | "simple" | "bug" = "task";
   for (const argument of args) {
     if (argument === "--no-skill") {
       useSkills = false;
+    } else if (argument === "--simple" || argument === "--bug") {
+      if (variant !== "task") {
+        throw new UsageError("task -p accepts only one of --simple or --bug");
+      }
+      variant = argument.slice(2) as "simple" | "bug";
     } else if (argument.startsWith("-")) {
       throw new UsageError(`Unknown task -p option: ${argument}`);
     } else if (!target) {
@@ -335,7 +332,10 @@ function parsePrintArguments(args: string[]): {
       throw new UsageError("task -p accepts at most one target");
     }
   }
-  return { target, useSkills };
+  if (useSkills && variant !== "task") {
+    throw new UsageError("--simple and --bug require --no-skill");
+  }
+  return { target, useSkills, variant };
 }
 
 async function selectTaskTarget(
@@ -450,7 +450,7 @@ async function runAgentCommand(
 
   if (parsed.action === "status") {
     const inferred = state
-      ? nextStage(target.kind, state.lastCompletedStage)
+      ? nextStage(state.lastCompletedStage)
       : inferStageFromArtifacts(target);
     services.out(
       state
@@ -477,9 +477,9 @@ async function runAgentCommand(
 
   let sessionId = parsed.newSession ? undefined : state?.sessionId;
   let stage = parsed.action === "start"
-    ? initialStage(target.kind)
+    ? initialStage()
     : state
-      ? nextStage(target.kind, state.lastCompletedStage)
+      ? nextStage(state.lastCompletedStage)
       : inferStageFromArtifacts(target);
 
   if (parsed.stage && parsed.stage !== stage) {
@@ -708,6 +708,7 @@ export async function runCli(
       return await printTaskPrompt(
         parsed.target,
         parsed.useSkills,
+        parsed.variant,
         services,
         base,
       );

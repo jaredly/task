@@ -71,12 +71,10 @@ Run `task -h` for the command summary:
 
 ```text
 Usage:
-  task <name...>          Create a standard task
-  task simple <name...>   Create a simple task
-  task bug <name...>      Create a bug task
+  task <name...>          Create a task
   task -n <name...>       Create a task directory and print its task.md path
   task init               Initialize .tasks in the current directory
-  task -p [--no-skill] [target]
+  task -p [--no-skill [--simple|--bug]] [target]
                          Print a task prompt, selecting a task if omitted
   task skills <action>    Install, inspect, or uninstall personal skills
   task agent <action>     Start, advance, or inspect a Codex ACP workflow
@@ -85,7 +83,7 @@ Usage:
   task --version          Show the version
 ```
 
-### Create a standard task
+### Create a task
 
 ```sh
 task add search filters
@@ -98,7 +96,7 @@ This creates a directory similar to:
 └── task.md
 ```
 
-The generated prompt begins with `$task-research`. Standard tasks then advance through `$task-plan`, `$task-implement`, and `$task-commit`; each stage stops at its stated boundary.
+The generated prompt begins with `$task-research`, then advances through `$task-plan`, `$task-implement`, and `$task-commit`; each stage stops at its stated boundary.
 
 ### Reserve a task directory
 
@@ -108,21 +106,7 @@ task -n add search filters
 
 This creates the timestamped task directory and prints the absolute path where its `task.md` brief will live. It does not create the brief, open an editor, or print an agent prompt. This is intended for agents and other CLI tools that need to reserve a task ID before writing the brief themselves.
 
-### Create a simple task
-
-```sh
-task simple update dependencies
-```
-
-Simple tasks invoke `$task-simple`, which skips research and planning, reviews the brief, asks only blocking questions, implements and verifies the change, records progress in `implementation-log.md`, and makes a scoped commit.
-
-### Create a bug task
-
-```sh
-task bug login redirect
-```
-
-Bug tasks create `bug.md` and invoke `$task-bugfix`. The skill requires a failing reproduction before the fix, verification, an implementation log, and a scoped commit.
+For a compact implementation or a bug fix, invoke `$task-simple` or `$task-bugfix` directly with the task's `task.md` brief. The simple skill skips research and planning; the bugfix skill requires a failing reproduction before the fix.
 
 ### Jira-backed tasks
 
@@ -138,7 +122,7 @@ When the task already lives in Jira, use the `-jira` skills instead of creating 
 
 Each stage posts new comments and never edits the description or an existing comment. There is no `$task-commit-jira`: the three implementing skills end with a scoped commit on a ticket-keyed branch and a draft pull request whose URL is included in the implementation-log comment. Jira access comes from whatever Jira tooling the agent has configured, such as an Atlassian MCP server.
 
-`init`, `simple`, and `bug` are reserved when used as the first argument. The rest of the name is joined with dashes. Characters outside ASCII letters, numbers, `_`, and `-` are converted to dashes; consecutive dashes are collapsed.
+The name arguments are joined with dashes. Characters outside ASCII letters, numbers, `_`, and `-` are converted to dashes; consecutive dashes are collapsed.
 
 When a task is created from a subdirectory, its path relative to the repository root is inserted into the new brief as context.
 
@@ -155,17 +139,19 @@ An explicit target can be a bare task name, directory path, or Markdown brief:
 ```sh
 task -p 06m8p-add-search-filters
 task -p .tasks/06m8p-add-search-filters
-task -p .tasks/000-archive/06m8q-bug-login-redirect/bug.md
+task -p .tasks/000-archive/06m8q-login-redirect/task.md
 ```
 
-Explicit targets do not need to exist. Bare names resolve under the nearest `.tasks` directory when one is available; paths resolve relative to the current directory. The workflow is inferred from the task directory name, and an explicit Markdown filename is preserved.
+Explicit targets do not need to exist. Bare names resolve under the nearest `.tasks` directory when one is available; paths resolve relative to the current directory. An explicit Markdown filename is preserved.
 
 The printed prompt starts with the task ID and passes the brief as an encoded absolute `file:` URL. `task -p` never starts an agent and remains the fallback for pasting a command into Codex CLI or Zed. In Zed's command menu, the adapter may display a skill as `/$task-research`; the underlying skill name is unchanged.
 
-Use `--no-skill` to print the original self-contained workflow transcript instead. The option works with an explicit target in either order or with the interactive picker:
+Use `--no-skill` to print the original self-contained workflow transcript instead. Add `--simple` or `--bug` to select the compact implementation or bugfix transcript; these options are valid only with `--no-skill`. The options work with an explicit target in either order or with the interactive picker:
 
 ```sh
 task -p --no-skill 06m8p-add-search-filters
+task -p --no-skill --simple 06m8p-add-search-filters
+task -p --no-skill --bug 06m8p-login-redirect
 task -p --no-skill
 ```
 
@@ -181,7 +167,7 @@ task agent status 06m8p-add-search-filters
 task agent next 06m8p-add-search-filters
 ```
 
-Omit the target to use the active-task picker. `start` creates a Codex session; `next` resumes it and runs one stage; `status` reads local state without starting Codex. Standard stages are research, plan, implement, and commit. Simple and bug tasks each use one combined implementation-and-commit stage.
+Omit the target to use the active-task picker. `start` creates a Codex session; `next` resumes it and runs one stage; `status` reads local state without starting Codex. The stages are research, plan, implement, and commit.
 
 After a successful turn, the CLI atomically writes `.agent.json` beside the brief with the Codex session ID and last completed stage. Failed and cancelled turns do not advance it. Before planning when `research.md` has an `Open questions` heading, the CLI requires confirmation and defaults to stopping.
 
@@ -214,8 +200,8 @@ Cancellation, an empty selection, or rejecting confirmation makes no filesystem 
 │   ├── plan.md
 │   ├── implementation-log.md
 │   └── .agent.json
-└── 06m8q-bug-login-redirect/
-    ├── bug.md
+└── 06m8q-login-redirect/
+    ├── task.md
     └── implementation-log.md
 ```
 
