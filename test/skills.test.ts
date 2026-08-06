@@ -21,7 +21,7 @@ const statusSkillLabels = [
   { name: "task-plan", labels: ["📝🏃", "📝🚫", "📝✅"] },
   { name: "task-plan-jira", labels: ["📝🏃", "📝🚫", "📝✅"] },
   { name: "task-implement", labels: ["👷🏃", "👷🚫", "👷✅"] },
-  { name: "task-simple", labels: ["👷🏃", "👷🚫", "👷✅"] },
+  { name: "task-simple", labels: ["👷🏃", "👷🚫", "👍✅"] },
   { name: "task-bugfix", labels: ["👷🏃", "👷🚫", "👷✅"] },
   { name: "task-implement-jira", labels: ["👷🏃", "👷🚫", "👷✅"] },
   { name: "task-simple-jira", labels: ["👷🏃", "👷🚫", "👷✅"] },
